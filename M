@@ -1,74 +1,59 @@
+import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
 
-# Example data
-notional = 1000000  # Notional of 1 million
-fixed_rate = 0.02  # 2% fixed rate
-euribor_rates = [0.015, 0.017, 0.018, 0.019]  # Provided Euribor rates
+# Define the MtM function for a swap with dynamic slicing of cash flows and discount factors
+def calculate_mtm_swap_over_time(notional, fixed_rate, float_rate_curve, discount_curve, swap_duration, payment_frequency):
+    num_periods = int(swap_duration * payment_frequency)
+    time_points = np.arange(0, swap_duration, 1 / payment_frequency)  # Generate time points (every 6 months for 5 years)
+    mtm_values = []  # To store MtM values at each time point
 
-# Define accrual periods using semi-annual dates
-start_dates = [
-    datetime(2024, 1, 1),
-    datetime(2024, 7, 1),
-    datetime(2025, 1, 1),
-    datetime(2025, 7, 1),
-]
-end_dates = [
-    datetime(2024, 7, 1),
-    datetime(2025, 1, 1),
-    datetime(2025, 7, 1),
-    datetime(2026, 1, 1),
-]
-
-# Function for calculating accrual periods based on Actual/360 convention
-def day_count_actual_360(start_date, end_date):
-    actual_days = (end_date - start_date).days
-    return actual_days / 360.0
-
-# Accrual fractions based on Actual/360 convention
-accrual_fractions = [day_count_actual_360(sd, ed) for sd, ed in zip(start_dates, end_dates)]
-
-# Function to bootstrap discount factors
-def bootstrap_discount_factors(euribor_rates, accrual_fractions):
-    discount_factors = [1.0]  # Start with DF(0) = 1
-    for rate, accrual in zip(euribor_rates, accrual_fractions):
-        df = discount_factors[-1] / (1 + rate * accrual)
-        discount_factors.append(df)
-    return discount_factors[1:]
-
-# Function to calculate progressively adjusted MtM over time
-def calculate_mtm_adjusted(notional, fixed_rate, euribor_rates, accrual_fractions, discount_factors):
-    fixed_leg_cash_flows = [notional * fixed_rate * accrual for accrual in accrual_fractions]
-    floating_leg_cash_flows = [notional * rate * accrual for rate, accrual in zip(euribor_rates, accrual_fractions)]
-    
-    mtm_values = []
-    for i in range(len(accrual_fractions)):
-        # Only discount the cash flows from the current period onward
-        remaining_fixed_leg_cash_flows = fixed_leg_cash_flows[i:]
-        remaining_floating_leg_cash_flows = floating_leg_cash_flows[i:]
-        remaining_discount_factors = discount_factors[i:]
+    for t in range(num_periods):
+        # Remaining periods at each time point
+        remaining_periods = num_periods - t
         
-        discounted_fixed_leg = sum(cf * df for cf, df in zip(remaining_fixed_leg_cash_flows, remaining_discount_factors))
-        discounted_floating_leg = sum(cf * df for cf, df in zip(remaining_floating_leg_cash_flows, remaining_discount_factors))
+        # Slice the discount curve and float rate curve to get the remaining values
+        current_discount_curve = discount_curve[t:t + remaining_periods]
+        current_float_rate_curve = float_rate_curve[t:t + remaining_periods]
         
-        # Calculate MtM (swap value at this point in time)
-        mtm_value = discounted_floating_leg - discounted_fixed_leg
-        mtm_values.append(mtm_value)
-    
-    return mtm_values
+        # Fixed leg cash flows for remaining periods
+        fixed_cash_flows = np.full(remaining_periods, notional * fixed_rate / payment_frequency)
+        
+        # Floating leg cash flows based on forward rates for remaining periods
+        floating_cash_flows = notional * np.array(current_float_rate_curve) / payment_frequency
+        
+        # Present value of fixed leg
+        pv_fixed_leg = np.sum(fixed_cash_flows * current_discount_curve)
+        
+        # Present value of floating leg
+        pv_floating_leg = np.sum(floating_cash_flows * current_discount_curve)
+        
+        # Calculate MtM for the current period
+        mtm_value = pv_fixed_leg - pv_floating_leg
+        mtm_values.append(mtm_value)  # Append MtM value for this time point
 
-# Bootstrap discount factors
-discount_factors = bootstrap_discount_factors(euribor_rates, accrual_fractions)
+    return time_points, mtm_values
 
-# Calculate adjusted MtM values over time
-mtm_values_adjusted = calculate_mtm_adjusted(notional, fixed_rate, euribor_rates, accrual_fractions, discount_factors)
+# Define swap parameters for a 5-year swap
+notional = 1000000  # 1 million
+fixed_rate = 0.02  # 2% fixed rate (par rate)
+swap_duration = 5  # 5 years
+payment_frequency = 2  # semiannual payments
 
-# Plotting the adjusted MtM values over time
-time_points = end_dates  # Only using end_dates to match the length of mtm_values
-plt.figure(figsize=(10, 6))
-plt.plot(time_points, mtm_values_adjusted, marker='o', linestyle='-')
-plt.title("Adjusted Mark-to-Market (MtM) Value of the Swap Over Time")
-plt.xlabel("Time")
-plt.ylabel("MtM Value")
+# Hypothetical forward Euribor rates for each payment period over 5 years (semiannual)
+float_rate_curve = [0.015, 0.016, 0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.023, 0.024] 
+
+# Continuous discount factors for each period over 5 years (semiannual)
+discount_curve = [0.99, 0.98, 0.97, 0.96, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90]
+
+# Calculate MtM values over time
+time_points, mtm_values = calculate_mtm_swap_over_time(
+    notional, fixed_rate, float_rate_curve, discount_curve, swap_duration, payment_frequency
+)
+
+# Plotting the MtM values over time
+plt.plot(time_points, mtm_values, marker='o', linestyle='-')
+plt.title("Mark-to-Market (MtM) Value of 5-Year Swap Over Time")
+plt.xlabel("Time (Years)")
+plt.ylabel("Mark-to-Market (MtM) Value")
 plt.grid(True)
 plt.show()
