@@ -1,3 +1,45 @@
+def slice_table_by_frequency(res, swap_duration, fixed_frequency, floating_frequency):
+    # Convert frequencies to fractions of a year
+    def frequency_to_years(frequency):
+        if frequency == "1Y":
+            return 1.0
+        elif frequency == "6M":
+            return 0.5
+        elif frequency == "3M":
+            return 0.25
+        else:
+            raise ValueError("Unsupported frequency format.")
+
+    # Calculate the number of periods based on duration and frequency
+    fixed_periods = int(swap_duration / frequency_to_years(fixed_frequency))
+    floating_periods = int(swap_duration / frequency_to_years(floating_frequency))
+
+    # Slice the fixed and floating parts of the table based on number of periods
+    fixed_part = res[res["Leg"] == "Fixed"].iloc[:fixed_periods]
+    floating_part = res[res["Leg"] == "Floating"].iloc[:floating_periods]
+
+    return fixed_part, floating_part
+
+# Example usage
+swap_duration = 5  # 5 years
+fixed_frequency = "6M"
+floating_frequency = "3M"
+
+# Assuming `res` is your pre-existing DataFrame
+fixed_part, floating_part = slice_table_by_frequency(res, swap_duration, fixed_frequency, floating_frequency)
+
+print("Fixed Leg Part:")
+print(fixed_part)
+print("\nFloating Leg Part:")
+print(floating_part)
+
+
+
+
+
+
+xxx
+
 import numpy as np
 import matplotlib.pyplot as plt
 
