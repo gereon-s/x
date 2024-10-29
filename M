@@ -1,3 +1,56 @@
+def calculate_discount_factors(par_rate, notional, cash_flow_dates, dcf):
+    """
+    Bootstraps discount factors based on par rate for fixed cash flows.
+    """
+    discount_factors = [1.0]  # Starting with DF=1.0 for the initial period
+    for i in range(1, len(cash_flow_dates)):
+        pv_cash_flows = sum(par_rate * notional * dcf[j] * discount_factors[j] for j in range(i))
+        df = (1 - pv_cash_flows) / (par_rate * notional * dcf[i])
+        discount_factors.append(df)
+    return discount_factors
+
+
+def calculate_mtm_swap_with_bootstrapping(
+    notional, par_rate, fixed_df, floating_df, fixed_dcf, floating_dcf,
+    forward_rates, fixed_frequency, floating_frequency
+):
+    # Bootstrap discount factors for fixed and floating legs separately
+    bootstrapped_fixed_df = calculate_discount_factors(par_rate, notional, fixed_df, fixed_dcf)
+    bootstrapped_floating_df = [1 / (1 + forward_rate * dcf) for forward_rate, dcf in zip(forward_rates, floating_dcf)]
+
+    # Generate time points for each fixed payment
+    fixed_time_points = [i / fixed_frequency for i in range(len(fixed_df))]
+
+    # Prepare to store MtM values over time
+    mtm_values = []
+
+    # Calculate MtM at each fixed payment point
+    for t in range(len(fixed_df)):
+        # Calculate PV of remaining fixed leg using bootstrapped discount factors
+        fixed_cash_flows = [notional * par_rate * dcf for dcf in fixed_dcf[t:]]
+        pv_fixed_leg = sum(cf * df for cf, df in zip(fixed_cash_flows, bootstrapped_fixed_df[t:]))
+
+        # Calculate PV of remaining floating leg using bootstrapped discount factors
+        floating_cash_flows = [notional * rate * dcf for rate, dcf in zip(forward_rates[t:], floating_dcf[t:])]
+        pv_floating_leg = sum(cf * df for cf, df in zip(floating_cash_flows, bootstrapped_floating_df[t:]))
+
+        # Calculate MtM and store
+        mtm_value = pv_fixed_leg - pv_floating_leg
+        mtm_values.append(mtm_value)
+
+    return fixed_time_points, mtm_values
+
+
+
+
+
+
+
+
+xxx
+
+
+
 def calculate_mtm_swap_over_time(notional, fixed_rate, pv_list, fixed_part, floating_part, fixed_dcf, floating_dcf, fixed_frq, floating_frq):
     # Determine the number of periods for fixed and floating legs based on the length of discount factor lists
     num_fixed_periods = len(fixed_part)  # Assuming fixed_part only contains initial discount factors for the fixed leg
