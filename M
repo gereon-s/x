@@ -1,3 +1,48 @@
+def calculate_mtm_swap_over_time(notional, fixed_rate, fixed_part, floating_part, fixed_dcf, floating_dcf, fixed_frq, floating_frq):
+    # Determine the number of periods for fixed and floating legs based on the length of discount factor lists
+    num_fixed_periods = len(fixed_part)  # Assuming fixed_part only contains discount factors for the fixed leg
+    num_floating_periods = len(floating_part)  # Assuming floating_part contains discount factors and forward rates for the floating leg
+
+    # Generate time points for each fixed payment
+    fixed_time_points = [i / fixed_frq for i in range(num_fixed_periods)]
+
+    # Prepare to store MtM values over time
+    mtm_values = []
+
+    # Calculate MtM at each fixed payment point
+    for t in range(num_fixed_periods):
+        # Get the remaining fixed and floating cash flows, discount factors, and day count fractions
+        current_fixed_discount_factors = fixed_part[t:]  # Remaining discount factors for fixed leg
+        current_fixed_dcf = fixed_dcf[t:]  # Remaining day count fractions for fixed leg
+        current_floating_discount_factors = floating_part[t:]  # Remaining discount factors for floating leg
+        current_floating_dcf = floating_dcf[t:]  # Remaining day count fractions for floating leg
+
+        # Calculate fixed leg cash flows and present value
+        fixed_cash_flows = [notional * fixed_rate * dcf for dcf in current_fixed_dcf]  # Apply day count fractions
+        pv_fixed_leg = sum(cf * df for cf, df in zip(fixed_cash_flows, current_fixed_discount_factors))
+
+        # Calculate floating leg cash flows and present value
+        floating_cash_flows = [notional * rate * dcf for rate, dcf in zip(current_floating_discount_factors, current_floating_dcf)]
+        pv_floating_leg = sum(cf * df for cf, df in zip(floating_cash_flows, current_floating_discount_factors))
+
+        # Calculate MtM value and store it
+        mtm_value = pv_fixed_leg - pv_floating_leg
+        mtm_values.append(mtm_value)
+
+    return fixed_time_points, mtm_values
+
+
+
+
+
+
+
+
+
+
+xxx
+
+
 import numpy as np
 
 # Parameters (example)
