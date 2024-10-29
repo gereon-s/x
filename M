@@ -1,3 +1,46 @@
+def transform_frequency(frequency):
+    # Define mapping for frequency values to months
+    frequency_mapping = {
+        "1D": 1 / 365,  # Approximating to 1/365 for daily
+        "1W": 7 / 365,  # Approximating to 7/365 for weekly
+        "1M": 1,
+        "6M": 6,
+        "1Y": 12
+    }
+    
+    # Get the frequency in months
+    if frequency not in frequency_mapping:
+        raise ValueError("Unsupported frequency format.")
+    
+    freq_in_months = frequency_mapping[frequency]
+
+    # Calculate periods per year (integer value)
+    periods_per_year = int(12 / freq_in_months) if freq_in_months >= 1 else int(365 / (freq_in_months * 30))
+
+    # Calculate fraction of a year
+    fraction_of_year = freq_in_months / 12 if freq_in_months >= 1 else freq_in_months
+
+    return periods_per_year, fraction_of_year
+
+# Example usage
+frequency = "6M"
+periods_per_year, fraction_of_year = transform_frequency(frequency)
+print(f"Periods per Year: {periods_per_year}, Fraction of Year: {fraction_of_year}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def calculate_mtm_swap_over_time(notional, fixed_rate, fixed_part, floating_part, fixed_dcf, floating_dcf, fixed_frq, floating_frq):
     # Determine the number of periods for fixed and floating legs based on the length of discount factor lists
     num_fixed_periods = len(fixed_part)  # Assuming fixed_part only contains discount factors for the fixed leg
