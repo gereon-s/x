@@ -22,6 +22,85 @@ def calculate_mtm_swap_over_time(notional, fixed_rate, float_rate_curve, discoun
         current_fixed_discount_curve = discount_curve[t:t + remaining_fixed_periods]
         current_floating_discount_curve = discount_curve[t * floating_frq // fixed_frq:t * floating_frq // fixed_frq + remaining_floating_periods]
         
+        # Fixed leg cash flows for the remaining periods
+        fixed_cash_flows = np.full(remaining_fixed_periods, notional * fixed_rate / fixed_frq)
+        
+        # Floating leg cash flows using sliced forward rate curve
+        floating_cash_flows = notional * np.array(float_rate_curve[t * floating_frq // fixed_frq:t * floating_frq // fixed_frq + remaining_floating_periods]) / floating_frq
+
+        # Present value of fixed and floating legs
+        pv_fixed_leg = np.sum(fixed_cash_flows * current_fixed_discount_curve)
+        pv_floating_leg = np.sum(floating_cash_flows * current_floating_discount_curve)
+        
+        # Calculate MtM and store
+        mtm_value = pv_fixed_leg - pv_floating_leg
+        mtm_values.append(mtm_value)
+
+    return fixed_time_points, mtm_values
+
+# Define swap parameters for a 5-year swap
+notional = 1000000  # 1 million
+fixed_rate = 0.02  # 2% fixed rate (par rate)
+swap_duration = 5  # 5 years
+fixed_frq = 2  # Semiannual for fixed leg (2 periods per year)
+floating_frq = 4  # Quarterly for floating leg (4 periods per year)
+
+# Hypothetical forward Euribor rates for each payment period over 5 years (quarterly)
+float_rate_curve = [0.015, 0.016, 0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.023, 0.024,
+                    0.025, 0.026, 0.027, 0.028, 0.029, 0.03, 0.031, 0.032, 0.033, 0.034]
+
+# Continuous discount factors for each period over 5 years (quarterly)
+discount_curve = [0.99, 0.98, 0.97, 0.96, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90,
+                  0.89, 0.88, 0.87, 0.86, 0.85, 0.84, 0.83, 0.82, 0.81, 0.80]
+
+# Calculate MtM values over time
+time_points, mtm_values = calculate_mtm_swap_over_time(
+    notional, fixed_rate, float_rate_curve, discount_curve, swap_duration, fixed_frq, floating_frq
+)
+
+# Plotting the MtM values over time
+plt.plot(time_points, mtm_values, marker='o', linestyle='-')
+plt.title("Mark-to-Market (MtM) Value of 5-Year Swap Over Time with Different Frequencies")
+plt.xlabel("Time (Years)")
+plt.ylabel("Mark-to-Market (MtM) Value")
+plt.grid(True)
+plt.show()
+
+
+
+
+
+
+
+
+
+
+xxxx
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def calculate_mtm_swap_over_time(notional, fixed_rate, float_rate_curve, discount_curve, swap_duration, fixed_frq, floating_frq):
+    # Determine the number of periods for fixed and floating legs based on frequencies
+    num_fixed_periods = int(swap_duration * fixed_frq)
+    num_floating_periods = int(swap_duration * floating_frq)
+
+    # Generate time points for the fixed leg (assuming we calculate MtM at fixed payment points)
+    fixed_time_points = np.arange(0, swap_duration, 1 / fixed_frq)
+
+    # Prepare to store MtM values over time
+    mtm_values = []
+
+    # Calculate MtM at each fixed payment point
+    for t in range(num_fixed_periods):
+        # Calculate remaining periods dynamically for both legs
+        remaining_fixed_periods = num_fixed_periods - t
+        remaining_floating_periods = num_floating_periods - int(t * (floating_frq / fixed_frq))
+
+        # Slice discount curve and float rate curve dynamically based on remaining periods
+        current_fixed_discount_curve = discount_curve[t:t + remaining_fixed_periods]
+        current_floating_discount_curve = discount_curve[t * floating_frq // fixed_frq:t * floating_frq // fixed_frq + remaining_floating_periods]
+        
         # Fixed leg cash flows
         fixed_cash_flows = np.full(remaining_fixed_periods, notional * fixed_rate / fixed_frq)
         
