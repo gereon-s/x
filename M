@@ -1,4 +1,43 @@
 import numpy as np
+
+# Parameters (example)
+notional = 1000000  # Notional amount
+par_rate = 0.03  # Fixed rate
+fixed_frequency = 2  # Semi-annual payments for fixed leg
+floating_frequency = 4  # Quarterly payments for floating leg
+discount_factors = [...]  # Discount factors for each cash flow time
+forward_rates = [...]  # Forward rates for floating leg periods
+fixed_dcf = [...]  # Day count fractions for fixed leg periods (e.g., 0.5 for semi-annual 30/360)
+floating_dcf = [...]  # Day count fractions for floating leg periods
+swap_duration = 5  # Swap duration in years
+
+# Calculate Fixed Leg Cash Flows with Day Count Fraction
+fixed_cash_flows = np.array([par_rate * notional * dcf for dcf in fixed_dcf])
+
+# Calculate Floating Leg Cash Flows with Day Count Fraction
+floating_cash_flows = np.array([forward_rate * notional * dcf for forward_rate, dcf in zip(forward_rates, floating_dcf)])
+
+# Present Value of Fixed and Floating Legs
+fixed_leg_pv = np.sum(fixed_cash_flows * np.array(discount_factors[:len(fixed_cash_flows)]))
+floating_leg_pv = np.sum(floating_cash_flows * np.array(discount_factors[:len(floating_cash_flows)]))
+
+# MTM Calculation
+mtm_value = floating_leg_pv - fixed_leg_pv
+print("Mark-to-Market (MTM) Value of the Swap:", mtm_value)
+
+
+
+
+
+
+
+
+
+
+
+xxx
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Parameters
