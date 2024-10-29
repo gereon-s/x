@@ -1,4 +1,80 @@
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def calculate_mtm_swap_over_time(notional, fixed_rate, res, swap_duration, fixed_frq, floating_frq):
+    # Number of periods based on frequencies
+    num_fixed_periods = int(swap_duration * fixed_frq)
+    num_floating_periods = int(swap_duration * floating_frq)
+    
+    # Time points for each fixed payment
+    fixed_time_points = np.arange(0, swap_duration, 1 / fixed_frq)
+
+    mtm_values = []
+
+    for t in range(num_fixed_periods):
+        # Calculate remaining periods
+        remaining_fixed_periods = num_fixed_periods - t
+        floating_index = int(t * (floating_frq / fixed_frq))
+        remaining_floating_periods = num_floating_periods - floating_index
+
+        # Slicing res for each leg
+        fixed_part = res.iloc[t:t + remaining_fixed_periods]
+        floating_part = res.iloc[floating_index:floating_index + remaining_floating_periods]
+
+        # Fixed leg cash flows
+        fixed_cash_flows = np.full(remaining_fixed_periods, notional * fixed_rate / fixed_frq)
+        pv_fixed_leg = np.sum(fixed_cash_flows * fixed_part["Discount Factor"].values)
+
+        # Floating leg cash flows
+        floating_cash_flows = notional * floating_part["Forward Rate"].values / floating_frq
+        pv_floating_leg = np.sum(floating_cash_flows * floating_part["Discount Factor"].values)
+
+        # Calculate MtM and store
+        mtm_value = pv_fixed_leg - pv_floating_leg
+        mtm_values.append(mtm_value)
+
+    return fixed_time_points, mtm_values
+
+# Example usage
+notional = 100000000
+fixed_rate = 0.02
+swap_duration = 5
+fixed_frq = 2
+floating_frq = 4
+
+# Example res table
+data = {
+    "Discount Factor": [0.99, 0.98, 0.97, 0.96, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90,
+                        0.89, 0.88, 0.87, 0.86, 0.85, 0.84, 0.83, 0.82, 0.81, 0.80],
+    "Forward Rate": [0.015, 0.016, 0.017, 0.018, 0.019, 0.02, 0.021, 0.022, 0.023, 0.024,
+                     0.025, 0.026, 0.027, 0.028, 0.029, 0.03, 0.031, 0.032, 0.033, 0.034]
+}
+res = pd.DataFrame(data)
+
+# Calculate and plot
+time_points, mtm_values = calculate_mtm_swap_over_time(
+    notional, fixed_rate, res, swap_duration, fixed_frq, floating_frq
+)
+
+plt.plot(time_points, mtm_values, marker='o', linestyle='-')
+plt.title("Mark-to-Market (MtM) Value of 5-Year Swap Over Time (Semiannual vs Quarterly)")
+plt.xlabel("Time (Years)")
+plt.ylabel("Mark-to-Market (MtM) Value")
+plt.grid(True)
+plt.show()
+
+
+
+
+
+
+
+xxx
+
+
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 def calculate_mtm_swap_over_time(notional, fixed_rate, float_rate_curve, discount_curve, swap_duration, fixed_frq, floating_frq):
