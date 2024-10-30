@@ -1,5 +1,68 @@
 import pandas as pd
 import statsmodels.api as sm
+from sklearn.utils import resample
+
+# Assume `merged_df` contains columns 'trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y', and target variable
+
+# Step 1: Create Interaction Terms
+merged_df['trump_odds_dxy'] = merged_df['trump_odds'] * merged_df['dxy']
+merged_df['trump_odds_spx'] = merged_df['trump_odds'] * merged_df['spx']
+merged_df['trump_odds_us_2y'] = merged_df['trump_odds'] * merged_df['us_2y']
+merged_df['trump_odds_inflation_swap'] = merged_df['trump_odds'] * merged_df['us_inflation_swap_2y']
+
+# Define features and target
+X = merged_df[['trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y', 
+               'trump_odds_dxy', 'trump_odds_spx', 'trump_odds_us_2y', 'trump_odds_inflation_swap']]
+X = sm.add_constant(X)  # Add intercept
+y = merged_df['target']  # Replace 'target' with your actual target variable name
+
+# Step 2: Fit the Initial OLS Model to Estimate Effect Sizes
+model = sm.OLS(y, X).fit()
+print(model.summary())
+
+# Step 3: Bootstrap to Calculate Confidence Intervals
+n_bootstraps = 1000
+bootstrapped_coefs = []
+
+for _ in range(n_bootstraps):
+    # Resample the data with replacement
+    X_resampled, y_resampled = resample(X, y)
+    
+    # Fit the OLS model to the bootstrap sample
+    boot_model = sm.OLS(y_resampled, X_resampled).fit()
+    bootstrapped_coefs.append(boot_model.params)
+
+# Convert to DataFrame for analysis
+bootstrapped_coefs_df = pd.DataFrame(bootstrapped_coefs)
+
+# Calculate mean and confidence intervals for coefficients
+coef_means = bootstrapped_coefs_df.mean()
+ci_lower = bootstrapped_coefs_df.quantile(0.025)
+ci_upper = bootstrapped_coefs_df.quantile(0.975)
+
+# Step 4: Display Results
+results_df = pd.DataFrame({
+    "Coefficient Mean": coef_means,
+    "CI Lower (2.5%)": ci_lower,
+    "CI Upper (97.5%)": ci_upper
+})
+
+print("Bootstrap Results with 95% Confidence Intervals for OLS with Interaction Terms:")
+print(results_df)
+
+
+
+
+
+
+xxx
+
+
+
+
+
+import pandas as pd
+import statsmodels.api as sm
 from statsmodels.tsa.api import VAR
 
 # Assume data is in a DataFrame `df` with columns: 'trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y'
