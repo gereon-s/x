@@ -12,6 +12,57 @@ universe = {"spy": "SPX Index", "aapl": "AAPL US Equity"}  # Add more tickers as
 start_date = "2024-08-12"
 end_date = datetime.now().strftime("%Y-%m-%d")  # Today's date
 
+# Initialize an empty DataFrame to store results
+historical_data = pd.DataFrame()
+
+# Loop through each security in the universe
+for key, ticker in universe.items():
+    # Prepare the query for historical last prices
+    query = bq.data.px_last(dates=bq.func.range(start_date, end_date))
+    
+    # Run the query for the current ticker
+    response = bq.execute(bql.Request(ticker, query))
+    
+    # Extract data from the response and convert it into a DataFrame
+    data = response[0].df()  # Convert response to a DataFrame
+    
+    # Dynamically get the column name (assuming only one data column is returned)
+    value_column = data.columns.difference(['date'])[0]  # Find the name of the data column
+    
+    # Rename the data column to the security's key
+    data = data.rename(columns={value_column: key})
+    
+    # Merge this data with the main DataFrame on the date
+    if historical_data.empty:
+        historical_data = data  # Initialize the main DataFrame on the first loop
+    else:
+        historical_data = historical_data.merge(data, on="date", how="outer")
+
+# Display the DataFrame with date and historical prices for each security
+print(historical_data)
+
+
+
+
+
+
+xxx
+
+
+import bql
+import pandas as pd
+from datetime import datetime
+
+# Initialize the BQL service
+bq = bql.Service()
+
+# Define the universe of securities
+universe = {"spy": "SPX Index", "aapl": "AAPL US Equity"}  # Add more tickers as needed
+
+# Define the start and end dates for the data fetch
+start_date = "2024-08-12"
+end_date = datetime.now().strftime("%Y-%m-%d")  # Today's date
+
 # Prepare a list of tickers and a query for historical last prices
 tickers = list(universe.values())
 query = bq.data.px_last(dates=bq.func.range(start_date, end_date))
