@@ -1,45 +1,30 @@
-import bql
 import pandas as pd
-from datetime import datetime
+import statsmodels.api as sm
+from statsmodels.tsa.api import VAR
 
-# Initialize the BQL service
-bq = bql.Service()
+# Assume data is in a DataFrame `df` with columns: 'trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y'
 
-# Define the universe of securities
-universe = {"spy": "SPX Index", "aapl": "AAPL US Equity"}  # Add more tickers as needed
+# Step 1: Prepare Data
+# Ensure data is stationary by differencing, if necessary
+# For simplicity, this example assumes the data is already stationary. 
+# Otherwise, you might need to apply differencing: df['dxy'] = df['dxy'].diff().dropna() (do this for each column if needed)
 
-# Define the start and end dates for the data fetch
-start_date = "2024-08-12"
-end_date = datetime.now().strftime("%Y-%m-%d")  # Today's date
+# Selecting the variables for the VAR model
+df_var = df[['trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y']]
 
-# Initialize an empty DataFrame to store results
-historical_data = pd.DataFrame()
+# Step 2: Fit the VAR Model
+model = VAR(df_var)
+lag_order = model.select_order()  # Select the optimal lag order based on AIC or BIC
+print("Selected Lag Order:", lag_order.selected_orders)
 
-# Loop through each security in the universe
-for key, ticker in universe.items():
-    # Prepare the query for historical last prices
-    query = bq.data.px_last(dates=bq.func.range(start_date, end_date))
-    
-    # Run the query for the current ticker
-    response = bq.execute(bql.Request(ticker, query))
-    
-    # Extract data from the response and convert it into a DataFrame
-    data = response[0].df()  # Convert response to a DataFrame
-    
-    # Dynamically get the column name (assuming only one data column is returned)
-    value_column = data.columns.difference(['date'])[0]  # Find the name of the data column
-    
-    # Rename the data column to the security's key
-    data = data.rename(columns={value_column: key})
-    
-    # Merge this data with the main DataFrame on the date
-    if historical_data.empty:
-        historical_data = data  # Initialize the main DataFrame on the first loop
-    else:
-        historical_data = historical_data.merge(data, on="date", how="outer")
+# Fitting the model with the selected lag order
+var_model = model.fit(lag_order.aic)
+print(var_model.summary())
 
-# Display the DataFrame with date and historical prices for each security
-print(historical_data)
+# Step 3: Impulse Response Function (IRF)
+# We will analyze how a shock in 'trump_odds' affects each variable in the system
+irf = var_model.irf(10)  # Calculate IRF over a 10-day horizon; adjust as needed
+irf.plot(orth=False)  # Plot the IRF, orthogonalization is False to show direct impact
 
 
 
@@ -49,136 +34,42 @@ print(historical_data)
 xxx
 
 
-import bql
 import pandas as pd
-from datetime import datetime
+import numpy as np
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
-# Initialize the BQL service
-bq = bql.Service()
+# Assume data is in a DataFrame `df` with columns: 'trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y'
 
-# Define the universe of securities
-universe = {"spy": "SPX Index", "aapl": "AAPL US Equity"}  # Add more tickers as needed
+# Step 1: Prepare Data
+# Adding interaction terms manually
+df['trump_odds_dxy'] = df['trump_odds'] * df['dxy']
+df['trump_odds_spx'] = df['trump_odds'] * df['spx']
+df['trump_odds_us_2y'] = df['trump_odds'] * df['us_2y']
+df['trump_odds_inflation_swap'] = df['trump_odds'] * df['us_inflation_swap_2y']
 
-# Define the start and end dates for the data fetch
-start_date = "2024-08-12"
-end_date = datetime.now().strftime("%Y-%m-%d")  # Today's date
+# Define features and target
+X = df[['trump_odds', 'dxy', 'spx', 'us_2y', 'us_inflation_swap_2y', 
+        'trump_odds_dxy', 'trump_odds_spx', 'trump_odds_us_2y', 'trump_odds_inflation_swap']]
+y = df['target']  # Replace 'target' with the specific column you're aiming to predict (e.g., SPX returns)
 
-# Prepare a list of tickers and a query for historical last prices
-tickers = list(universe.values())
-query = bq.data.px_last(dates=bq.func.range(start_date, end_date))
+# Step 2: Model Setup with Ridge Regression
+ridge = make_pipeline(StandardScaler(), Ridge(alpha=1.0))  # StandardScaler helps with interaction term scaling
 
-# Run the query
-response = bq.execute(bql.Request(tickers, query))
+# Step 3: Cross-Validation for Evaluation
+# Using cross-validation to assess model performance given limited samples
+cv_scores = cross_val_score(ridge, X, y, cv=5, scoring='r2')  # Adjust scoring metric as desired
 
-# Extract data from the response and format it into a DataFrame
-data = response[0].df()  # Convert the response to a DataFrame
+print("Cross-Validation R^2 Scores:", cv_scores)
+print("Mean R^2 Score:", np.mean(cv_scores))
 
-# Pivot the DataFrame to have dates as rows and tickers as columns
-data_pivot = data.pivot(index="date", columns="ticker", values="PX_LAST")
+# Step 4: Fit the Model (optional, if you want to inspect coefficients)
+ridge.fit(X, y)
+coefficients = ridge.named_steps['ridge'].coef_
+feature_names = X.columns
 
-# Rename columns to match keys in the 'universe' dictionary
-data_pivot.columns = [key for key, ticker in universe.items() if ticker in data_pivot.columns]
-
-# Reset the index to make Date a column
-data_pivot.reset_index(inplace=True)
-
-# Display the DataFrame with date and historical prices for each security
-print(data_pivot)
-
-
-
-
-
-
-
-xxx
-
-import pandas as pd
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-# Function to calculate VIF for a given DataFrame
-def calculate_vif(df):
-    # Remove constant columns (columns with only one unique value)
-    df = df.loc[:, df.apply(pd.Series.nunique) > 1]
-    
-    # Check if there are at least two columns left for VIF calculation
-    if df.shape[1] < 2:
-        print("VIF calculation requires at least two non-constant columns. No VIF values calculated.")
-        return pd.DataFrame(columns=['feature', 'VIF'])  # Return an empty DataFrame if insufficient columns
-    
-    # Calculate VIF
-    vif_data = pd.DataFrame()
-    vif_data['feature'] = df.columns
-    try:
-        vif_data['VIF'] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
-    except ValueError as e:
-        print(f"Error calculating VIF: {e}")
-        return pd.DataFrame(columns=['feature', 'VIF'])  # Return an empty DataFrame on error
-    return vif_data
-
-# Example usage
-vif_results = calculate_vif(df)
-if not vif_results.empty:
-    print(vif_results)
-else:
-    print("No VIF results due to data constraints.")
-
-
-
-
-
-
-
-yxx
-
-
-import pandas as pd
-import itertools
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from statsmodels.formula.api import ols
-
-# List of predictor variables
-predictors = ['DXY', 'US_2y', 'US_5y', 'US_10y', 'US_Inflation_Swaps1']
-target = 'Trump'
-
-# Function to calculate VIF for a given DataFrame
-def calculate_vif(df):
-    vif_data = pd.DataFrame()
-    vif_data['feature'] = df.columns
-    vif_data['VIF'] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
-    return vif_data
-
-# Dictionary to store results
-results = {}
-
-# Iterate over all possible combinations of predictors
-for i in range(1, len(predictors) + 1):
-    for combo in itertools.combinations(predictors, i):
-        predictors_subset = list(combo)
-        
-        # Calculate VIF for the current subset
-        vif = calculate_vif(df[predictors_subset])
-        
-        # Filter out features with VIF > 10
-        filtered_predictors = vif[vif['VIF'] <= 10]['feature'].tolist()
-        
-        # Check if there are any predictors left after filtering
-        if filtered_predictors:
-            # Fit the regression model with HC2 robust standard errors
-            formula = f"{target} ~ " + " + ".join(filtered_predictors)
-            model = ols(formula, data=df).fit(cov_type='HC2')
-            
-            # Store results (model summary and VIF)
-            filtered_vif = calculate_vif(df[filtered_predictors])
-            results[', '.join(filtered_predictors)] = {
-                'model_summary': model.summary(),
-                'VIF': filtered_vif
-            }
-
-# Access results for any specific combination that meets VIF criteria
-for key in results:
-    print(f"Model with predictors: {key}")
-    print(results[key]['model_summary'])  # Summary of the regression model with HC2 errors
-    print("VIF Table:")
-    print(results[key]['VIF'])           # VIF table
-    print("\n")
+# Display coefficients
+for feature, coef in zip(feature_names, coefficients):
+    print(f"{feature}: {coef:.4f}")
