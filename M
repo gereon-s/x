@@ -1,4 +1,43 @@
 import pandas as pd
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Function to calculate VIF for a given DataFrame
+def calculate_vif(df):
+    # Remove constant columns (columns with only one unique value)
+    df = df.loc[:, df.apply(pd.Series.nunique) > 1]
+    
+    # Check if there are at least two columns left for VIF calculation
+    if df.shape[1] < 2:
+        print("VIF calculation requires at least two non-constant columns. No VIF values calculated.")
+        return pd.DataFrame(columns=['feature', 'VIF'])  # Return an empty DataFrame if insufficient columns
+    
+    # Calculate VIF
+    vif_data = pd.DataFrame()
+    vif_data['feature'] = df.columns
+    try:
+        vif_data['VIF'] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
+    except ValueError as e:
+        print(f"Error calculating VIF: {e}")
+        return pd.DataFrame(columns=['feature', 'VIF'])  # Return an empty DataFrame on error
+    return vif_data
+
+# Example usage
+vif_results = calculate_vif(df)
+if not vif_results.empty:
+    print(vif_results)
+else:
+    print("No VIF results due to data constraints.")
+
+
+
+
+
+
+
+yxx
+
+
+import pandas as pd
 import itertools
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.formula.api import ols
