@@ -1,3 +1,47 @@
+import bql
+import pandas as pd
+from datetime import datetime
+
+# Initialize the BQL service
+bq = bql.Service()
+
+# Define the universe of securities
+universe = {"spy": "SPX Index", "aapl": "AAPL US Equity"}  # Add more tickers as needed
+
+# Define the start and end dates for the data fetch
+start_date = "2024-08-12"
+end_date = datetime.now().strftime("%Y-%m-%d")  # Today's date
+
+# Prepare a list of tickers and a query for historical last prices
+tickers = list(universe.values())
+query = bq.data.px_last(dates=bq.func.range(start_date, end_date))
+
+# Run the query
+response = bq.execute(bql.Request(tickers, query))
+
+# Extract data from the response and format it into a DataFrame
+data = response[0].df()  # Convert the response to a DataFrame
+
+# Pivot the DataFrame to have dates as rows and tickers as columns
+data_pivot = data.pivot(index="date", columns="ticker", values="PX_LAST")
+
+# Rename columns to match keys in the 'universe' dictionary
+data_pivot.columns = [key for key, ticker in universe.items() if ticker in data_pivot.columns]
+
+# Reset the index to make Date a column
+data_pivot.reset_index(inplace=True)
+
+# Display the DataFrame with date and historical prices for each security
+print(data_pivot)
+
+
+
+
+
+
+
+xxx
+
 import pandas as pd
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
