@@ -1,1 +1,50 @@
+import pandas as pd
+import itertools
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.formula.api import ols
 
+# List of predictor variables
+predictors = ['DXY', 'US_2y', 'US_5y', 'US_10y', 'US_Inflation_Swaps1']
+target = 'Trump'
+
+# Function to calculate VIF for a given DataFrame
+def calculate_vif(df):
+    vif_data = pd.DataFrame()
+    vif_data['feature'] = df.columns
+    vif_data['VIF'] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
+    return vif_data
+
+# Dictionary to store results
+results = {}
+
+# Iterate over all possible combinations of predictors
+for i in range(1, len(predictors) + 1):
+    for combo in itertools.combinations(predictors, i):
+        predictors_subset = list(combo)
+        
+        # Calculate VIF for the current subset
+        vif = calculate_vif(df[predictors_subset])
+        
+        # Filter out features with VIF > 10
+        filtered_predictors = vif[vif['VIF'] <= 10]['feature'].tolist()
+        
+        # Check if there are any predictors left after filtering
+        if filtered_predictors:
+            # Fit the regression model with HC2 robust standard errors
+            formula = f"{target} ~ " + " + ".join(filtered_predictors)
+            model = ols(formula, data=df).fit(cov_type='HC2')
+            
+            # Store results (model summary and VIF)
+            filtered_vif = calculate_vif(df[filtered_predictors])
+            results[', '.join(filtered_predictors)] = {
+                'model_summary': model.summary(),
+                'VIF': filtered_vif
+            }
+
+# Access results for any specific combination that meets VIF criteria
+for key in results:
+    print(f"Model with predictors: {key}")
+    print(results[key]['model_summary'])  # Summary of the regression model with HC2 errors
+    print("VIF Table:")
+    print(results[key]['VIF'])           # VIF table
+    print("\n")
